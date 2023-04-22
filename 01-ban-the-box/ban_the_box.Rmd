@@ -1,0 +1,280 @@
+---
+title: "Problem Set 1"
+output:
+  html_document:
+    theme: spacelab
+    toc: yes
+    tod_depth: 1
+    toc_float: yes
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r include=FALSE}
+# Clear desk
+rm(list=ls())
+
+# Load libraries
+library(psych)
+library(stargazer)
+library(dplyr)
+```
+
+
+Ido Shalom  
+
+
+Ofri Ahiel  
+
+
+Daniel Rodan  
+
+
+Ori Shneor  
+
+
+# Part 1. Research Question & Data
+
+
+### Section 1
+(a) Due the disproportion distribution in the population by race about crime convictions, the creators of Ban the Box believed the policy would reduce racial differences in employment because it will give any potential employ a "fair shot" base on his pure skill set rather his criminal history.
+
+(b) The hypothesis of why BTB might get unwanted outcomes is that, employers will use BTB to make their on approximation about the possibility of having a crime history base on race.
+
+
+### Section 2
+```{r}
+# read the data
+dat <- read.table('AganStarrQJEData.csv', header=TRUE, sep=",")
+
+# create a subset of the data excluding remover = -1
+df <- subset(dat, remover != -1)
+
+# create a dummy vector of remover equal to 1 if the employer had a box  and 0 otherwise. 
+box <- df$remover
+```
+
+
+### Section 3
+Glimpse to the data
+```{r echo=FALSE}
+# methods to "get to know" the data frame.
+head(df)
+describe(df)
+```
+
+
+
+### Section 4
+```{r results='asis', echo=FALSE}
+# adding the box vector into the data frame
+df$box <- box
+
+# Define a vector of the features to show in the descriptive statistics table.
+features <- c('response', 'response_black', 'response_white', 'box', 'post', 'white', 'ged', 'empgap', 'crime', 'nyc', 'retail')
+
+# Create a descriptive statistics table
+stargazer(df[features], type="html", title="Descriptive Statistics", nobs=FALSE, digits=2, summary=TRUE)
+```
+
+
+# Part 2. Review of Law of Iterated Expectations
+
+
+### Section 1
+```{r echo=FALSE}
+# Number of applicants
+N <- count(df)[[1]]
+
+# Fraction of white applicants (there are no missing values)
+p_white <- sum(df$white)[[1]] / N
+
+# white applicants callback rate
+E_x_w1 <- sum(df$response_white, na.rm=TRUE)[[1]] / (p_white * N)
+E_x_w0 <- sum(df$response_black, na.rm=TRUE)[[1]] / ((1 - p_white) * N)
+
+E_x <- p_white*E_x_w1 + (1-p_white)*(E_x_w0)
+```
+To apply LIE to the callback rate in this data set, we first need to compute the fraction of white applicants out of all applicants:
+
+$P(W=1) = `r round(p_white, 2)`$
+
+Then we want to compute the probability for white and non-white applicant to get a callback:
+
+$E[X|W=1] = `r round(E_x_w1, 2)`$
+
+$E[X|W=0] = `r round(E_x_w0, 2)`$
+
+Then,the equation to compute the callback rate is:
+
+$E[X] = P(W = 1)E[X|W = 1] + P(W = 0)E[X|W = 0] = `r round(E_x, 2)`$
+
+Now, let's compare it to the sample mean:
+```{r}
+mean(df$response, na.rm=TRUE)
+```
+
+
+# Part 3. Equivalence between Linear Regression with Fully Saturated Model and Conditional Means
+
+
+### Section 1
+The conditional means $\beta_1, \beta_2, and$ $\beta_3$ correspond to are:
+
+$E[Y|X_1 = 0, X_2 = 0] = \beta_0$
+
+$E[Y|X_1 = 1, X_2 = 0] = \beta_0 + \beta_1$
+
+$E[Y|X_1 = 0, X_2 = 1] = \beta_0 + \beta_2$
+
+$E[Y|X_1 = 1, X_2 = 1] = \beta_0 + \beta_1 + \beta_2 + \beta_3$
+
+
+then we can infer the meaning of each parameter by subtracting according 
+element to isolate $\beta_1, \beta_2, and$ $\beta_3$ 
+
+### Section 2
+
+$Callback_i = \alpha_0 + \alpha_1 \cdot White_i + \epsilon_i$
+
+(a)
+
+To get the callback expectation among black applicants we should take only the black applicants which means, defining White = 0.
+
+$Call \hat back = \alpha_0 + \alpha_1 \cdot0 = \alpha_0$
+
+(b)
+
+To get the callback expectation among White applicants we should take only the White applicants which means, defining White = 1.
+
+$Call \hat back = \alpha_0 + \alpha_1 \cdot1 = \alpha_0 + \alpha_1$
+
+(c)
+
+The parameter that captures the racial gap in the callback rates is $\alpha_1$. the reason is Because we creates 2 separated linear regressions one for the White applicants and one for the  black applicants, which separated by the incline.
+
+
+### Section 3
+
+$Callback_i = \lambda_0 + \lambda_1\cdot White_i + \lambda_2\cdot Crime_i + \lambda_3\cdot (White_i\cdot Crime_i) + \epsilon_i$
+
+(a)
+
+To get the callback expectation among black applicants without criminal record we need to take only black applicants (define White = 0) and from them take only the ones without criminal record (define crime = 0).
+
+$Call \hat back = \lambda_0 + \lambda_1\cdot0 + \lambda_2\cdot0 + \lambda_3\cdot0\cdot0 = \lambda_0$
+
+(b)
+
+To get the callback expectation among black applicants with criminal record we need to take only black applicants (define White = 0) and from them take only the ones with criminal record (define crime = 1).
+we will get $\lambda_2$. (ignoring $\lambda_0$ because it will be in all of them.)
+
+
+$Call \hat back = \lambda_0 + \lambda_1\cdot0 + \lambda_2\cdot1 + \lambda_3\cdot0\cdot1 = \lambda_0 + \lambda_2$
+
+
+To get the callback expectation among white applicants without criminal record we need to take only white applicants (define White = 1) and from them take only the ones without criminal record (define crime = 0).
+we will get $\lambda_1$. (ignoring $\lambda_0$ because it will be in all of them.)
+
+$Call \hat back = \lambda_0 + \lambda_1\cdot1 + \lambda_2\cdot0 + \lambda_3\cdot1\cdot0 = \lambda_0 + \lambda_1$
+
+To get the callback rate for white applicants with criminal record we should define White = 1 and crime = 1
+
+To get the callback expectation among white applicants with criminal record we need to take only white applicants (define White = 1) and from them take only the ones with criminal record (define crime = 1).
+we will get $\lambda_3$ in additional to the others
+
+$Call \hat back = \lambda_0 + \lambda_1\cdot1 + \lambda_2\cdot1 + \lambda_3\cdot1\cdot1 = \lambda_0 + \lambda_1 + \lambda_2 + \lambda_3$
+
+we will do a linear combination of them and will get: 
+
+$Callback_i = \lambda_0 + \lambda_1\cdot White_i + \lambda_2\cdot Crime_i + \lambda_3\cdot (White_i\cdot Crime_i) + \epsilon_i$
+
+The 4 linear regressions above preform the CEF:
+
+$E[Y |X1, X2]$
+
+
+(c)
+
+The parameters that captures the expected racial gap in callback for applicants with a criminal record:
+
+$E[Y|White=1, Crime=1] - E[Y|White=0, Crime=1] = (\lambda_0 + \lambda_1 + \lambda_2 + \lambda_3) - (\lambda_0 + \lambda_2) = \lambda_1 + \lambda_3$
+
+
+The parameters that captures the expected racial gap in callback for applicants without a criminal record:
+
+$E[Y|White=1, Crime=0] - E[Y|White=0, Crime=0] = (\lambda_0 + \lambda_1) - \lambda_0 = \lambda_1$
+
+(d)
+
+The null hypothesis stands for $\lambda_1 = \alpha_1$ means we assume that there is no influence on callback rate whether the applicant had a criminal record or not.
+
+
+### Section 4
+
+$Callback_i = \beta_0 + \beta_1White_i + \beta_2Box_i + \beta_3(White_i \cdot Box_i) + \beta_4(Crime_i \cdot Box_i) + \beta_5(White_i \cdot Crime_i \cdot Box_i) + \epsilon_i$
+
+(a)
+
+If we want the conditional mean of callback for the case of no box employers by race it means we assume that box and crime variables have no influence on the regression line, which gives us $\alpha_0 = \lambda_0 = \beta_0$ and $\alpha_1 = \lambda_1 = \beta_1$.
+
+To find the conditional mean of callback for the case of box employers by race and criminal status we assume that box and crime variables have an influence on the regression line, which gives us the full equation. reducing the parameters $\beta_0$ and $\beta_1$ we will get $\beta_2 + \beta_3 + \beta_4 + \beta_5 = \lambda_2 + \lambda_3$.
+
+(b)
+
+The null $\lambda_1 = \alpha_1$ corresponds to the null hypothesis that Crime have no influence on the callback rate, meaning $\lambda_1 = \alpha_1 = \beta_1 + \beta_2 + \beta_3$ (no considering all the parameters which include crime).
+
+
+
+### Section 5
+
+$Callback_i = \beta_0 + \beta_1 White_i + \beta_2 Box_i + \beta_3(White_i \cdot Box_i) + \beta_4(Crime_i \cdot Box_i) + \beta_5(White_i \cdot Crime_i \cdot Box_i) + \beta_6 GED_i + \beta_7 EmploymentGap_i + \epsilon_i$
+
+We can't replace between the equations (regression 4 will swap regression 3) and keep the meaning of the parameters from equations 1 and 2 because we can't represent the GED element and Employment Gap element with the existed variables for regressions 1 and 2.
+
+
+### Section 6
+
+(a)
+```{r}
+# create a regression to Estimate model 1 for observations in the pre-period with no box
+reg.1a <- lm(response ~ white, subset(df, box == 0))
+
+# create a regression to Estimate model 1 for observations in the pre-period with a box
+reg.1b <- lm(response ~ white, subset(df, box == 1))
+```
+
+
+(b)
+```{r}
+# create a regression to Estimate model 2 for observations in the pre-period with a box
+reg.2 <- lm(response ~ white + crime + (white * crime), subset(df, box == 1))
+```
+
+
+(c)
+```{r}
+# create a regression to Estimate model 3 for all observations
+reg.3 <- lm(response ~ white + box + (white * box) + (crime * box) + (white * crime * box), df)
+```
+
+
+(d)
+```{r results='asis', echo=FALSE}
+# creating a organize table with all the regressions data.
+stargazer(reg.1a, reg.1b, reg.2, reg.3, type="html", title="Regressions Table", column.labels=c("Model 1.a", "Model 1.b", "Model 2", "Model 3"))
+```
+
+(e)
+
+The racial gap in the pre-period for employers without a box is `r round(summary(reg.1a)$coefficient[2]*100, 2)`%.
+
+The racial gap for employers with a box is not significant and has low influence we can infer that a reason for that is because the existing of the box itself doesn't effect the callback rate but what should be meaningful is the criminal record.
+
+from Looking at table we can infer the gap callback rate between white and black people is very low (-0.06), which tells us most of the difference in callback rate depends more on race then on criminal record.
+to sum it all,we try to observe whether a criminal record effect the acceptance to work places and found out that maybe,there is discrimiintion base on race after all.
+
+
+
