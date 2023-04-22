@@ -1,0 +1,270 @@
+---
+title: "Problem Set 2"
+output:
+  html_document:
+    theme: spacelab
+    toc: yes
+    tod_depth: 1
+    toc_float: yes
+    df_print: paged
+   
+---
+
+
+Ido Shalom  
+
+
+Ofri Ahiel  
+
+
+Daniel Rodan  
+
+
+Ori Shneor  
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Clear desk
+rm(list=ls())
+
+# install the ri package.
+# url <- "https://cran.r-project.org/src/contrib/Archive/ri/ri_0.9.tar.gz"
+# 
+# install.packages(url, repos=NULL, type="source")
+
+# Load libraries
+library(psych)
+library(stargazer)
+library(dplyr)
+library(ri)
+```
+
+```{css echo=FALSE}
+th, td {
+    padding-left: 20px;
+    text-align: left;
+}
+```
+
+
+# Part 1. Setup and Descriptive Statistics
+
+
+## Section 1
+
+
+```{r}
+# Read the data
+dat <- readRDS('earlytrainingproject_clean.rds')
+```
+
+
+## Section 2
+
+
+```{r}
+# set a features' vector for varsChild.
+varsChild <- c("iq5", "iq6", "iq12", "retn12", "iep12")
+
+# set a features' vector for varsTeen.
+varsTeen <- c("iq15", "hsgrad", "parent")
+
+# set a features' vector for varsAdults.
+varsAdults <- c("college", "employed", "convicted", "felon", "jailed", "marijuana")
+
+# combining the three vectors.
+vars <- c(varsChild, varsTeen, varsAdults)
+```
+
+
+## Section 3
+
+
+```{r}
+# set a new data frame with the requested features.
+df <- dat[c(c("SUBJECT", "DC_TRT", "SEX"), vars)]
+```
+
+
+## Section 4
+
+
+```{r}
+# Using "Describe" to display the data.
+describe(df)
+
+# Omit the NA's
+df <- na.omit(df)
+```
+
+
+`r (count(dat) - count(df))[[1]]` observations contained NA's and were omitted.
+
+
+## Section 5
+
+
+```{r}
+# set a binary variable "treat" that defined as 1 for the case that the observation been given treatment and 0 otherwise.
+df$treat <- ifelse(df$DC_TRT == "Treatment", 1, 0)
+```
+
+
+## Section 6
+
+
+```{r two-tables, results="asis"}
+# Create two descriptive statistics tables, one for all the observtions that are in the "control" group for each variable, and the same for the "treatment" group.   
+stargazer(df[df$treat == 0, vars], df[df$treat == 1, vars], type="html", title=c("Descriptive Statistics: Control", "Descriptive Statistics: Treatment"), digits=2, summary=TRUE)
+```
+
+
+# Part 2. Estimates of Average Treatment Effects
+
+
+## Section 1
+
+
+```{r results="asis"}
+# Creating  a function using "tapply" that takes the mean of a given input by the category "treatment".
+return_mean_by_treatment <- function(x){tapply(x, df$treat, mean)}
+
+# Compute the means by "treatment" for each of the variables in vars.it will give us a rows of the means by "control" and "treatment" for each variable .
+means <- sapply(df[vars],return_mean_by_treatment)
+
+# calculate the difference between treatment and control means for each variable.
+means <- t(rbind(means, means[2,] - means[1,]))
+
+# defining the column names for the table.
+colnames(means) <- c("Control","Treated","Difference")
+
+# create the table using "stargazer" that will display for each variable,the estimated treatment mean,control mean and the difference between them ("the real case").
+stargazer(means, type="html", title="Treatment and Control: Means at Baseline", digits=2)
+```
+
+
+### Section 2
+
+
+```{r results='asis'}
+# Running a linear regression for each variable to get the beat_0 estimator ("the control group") and the beta_1 estimator ("the estimated difference").
+model <- lapply(vars, function(x) lm(paste0(x, ' ~ ', 'treat'), df))
+# create the table using "stargazer" that will display for each variable his OLS Estimators.
+stargazer(model, type="html", title="OLS Estimators", column.labels=vars)
+
+```
+
+
+As we can see,the beat_0 estimator is indeed the value for the "control group", and the beta_1 estimator s indeed the value for the "estimated difference".
+
+
+# Part 3. Randomization Inference
+
+
+## Section 1
+
+
+### Sub-section a
+
+
+```{r}
+# computing the probability of treatment in the sample.as we expected,we got a 0.5 probability (41/82 treated observation for each variable) 
+probs = genprobexact(df$treat, clustvar=df$SUBJECT, blockvar=NULL)
+probs
+```
+
+
+### Sub-section b
+
+
+```{r results='hide'}
+# setting the seed to prevent multiple randomization on the same data frame, " to keep the same randomization"  
+set.seed(2023)
+
+# create a 82*5000 matrix such that, every observation get 0 or 1 by randomization, which makes the "fake" cases.
+perms <- genperms(df$treat, blockvar=NULL, clustvar=df$SUBJECT, maxiter=5000)
+
+```
+
+
+## Section 2
+
+
+A small clarification:
+we did the parts of section 2 altogether,we thought it will be better to display the function as a whole rather then sub-section each part of it. 
+
+
+```{r}
+# defining the function for the "fake" distribution. 
+fake_distribution<- function(x){
+  # "setting the seed"
+  set.seed(2023)
+  # computing the probability of treatment for each of the 14 variables.
+  probs <- genprobexact(df$treat, clustvar=df$SUBJECT, blockvar=NULL)
+  # create a 82*5000 matrix such that, every observation in each of the 14 variables get 0 or 1 by randomization, which makes the "fake" cases.
+  perms <- genperms(df$treat, clustvar=df$SUBJECT, maxiter=5000)
+  # Under the sharp null,create all the hypothesized (Y0 = Y1) 
+  Null <- genouts(x, df$treat, 0)
+  # returns for each variable a vector with the "fake" distribution relevant to it,under the null.
+  return(gendist(Null, perms, prob=probs))
+}
+```
+
+
+## Section 3
+
+
+```{r results='hide'}
+# creating a variable that, with the help of the function above, set for each of the 14 variables, a distribution of estimated average treatment effect.
+EstDistNull <- sapply(df[vars], fake_distribution)
+
+```
+
+```{r results='asis'}
+# display the first "fake" values from the distribution for each variable.
+stargazer(head(EstDistNull), type="html")
+```
+
+
+## Section 4
+
+
+### Sub-section a
+
+
+```{r}
+# setting a TRUE\FALSE matrix such that, a cell in the matrix get the value TRUE, if the "fake" average treatment distribution is higher (in abs) than the observed average treatment distribution. 
+Indicator <- apply(EstDistNull, 1, function(x) ifelse(abs(x) >= abs(means[,3]), TRUE, FALSE))
+
+```
+
+
+### Sub-section b
+
+
+```{r}
+# By counting the number of TRUE appearances in the matrix and dividing it by the total number of permutations,computing the p-value for each variable.
+p_values <- apply(Indicator, 1, mean)
+```
+
+
+### Sub-section c
+
+
+```{r results='asis'}
+# display a P Values Table for all the variables.
+stargazer(p_values, type = "html", title = "P Values Table", flip = TRUE)
+
+```
+
+
+## Section 5
+
+
+According to the P Values, We can infer that the treatment of high quality education setting from infancy to age 5 in poverty areas, did improved IQ levels of the kids throughout the years.
+on the other hand, the treatment had no effect what so ever regarding to criminal activities.
+
+
+
