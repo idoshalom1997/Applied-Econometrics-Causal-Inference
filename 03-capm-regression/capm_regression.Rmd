@@ -1,0 +1,433 @@
+---
+title: "Problem Set 3"
+output:
+  html_document:
+    theme: spacelab
+    toc: yes
+    tod_depth: 1
+    toc_float: yes
+    df_print: paged
+---
+
+
+Ido Shalom  
+
+
+Ofri Ahiel  
+
+
+Daniel Rodan  
+
+
+Ori Shneor  
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Clear desk
+rm(list=ls())
+
+# Load libraries
+library(sandwich)
+library(readstata13)
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+library(sandwich)
+library(lmtest)
+library(gmodels)
+```
+
+```{css echo=FALSE}
+th, td {
+    padding-left: 20px;
+    text-align: left;
+}
+```
+
+
+
+# Part 1. CAPM – β and Understanding OLS
+
+
+## Section 1
+
+
+```{r}
+# Reading the data.
+dat1 <- read.dta13('data_part1.dta')
+
+# Defining the risk free assent interest - rf.
+rf <- 0.0041
+
+# Defining new variable rM − rf,the excess return of the stock market.
+dat1$rM_rf <- dat1$r_M - rf
+
+# Defining new variable rA − rf,the excess return of the gold shares.
+dat1$rA_rf <- dat1$r_A - rf
+
+# Defining new variable rB − rf,the excess return of Morgan Stanley bank shares.
+dat1$rB_rf <- dat1$r_B - rf
+```
+
+
+## Section 2
+
+
+```{r}
+# Compute the covariance matrix of all the 3 stocks.
+cov(dat1[c('r_A', 'r_B', 'r_M')]) %>% round(5)
+
+# Compute the covariance matrix of all the excess return of the 3 stocks.
+cov(dat1[c('rA_rf', 'rB_rf', 'rM_rf')]) %>% round(5)
+```
+
+
+When we compare the two matrices, we can see that they are identical.
+The reason for that connection between the two matrices is derived from a mathematical definition which is:
+if we want to compute the  $cov(r_j - r_f,r_i - r_f)$ when $r_j , r_i$ are random variables and $r_f$ is a constant, the result will be $cov(r_j ,r_i)$ .subtracting a constant from both random variables does not affect their covariance.  
+
+
+## Section 3
+
+
+```{r}
+# Create a scatter plot for the excess return of the gold shares and the excess return of the stock market relationship. 
+plot1 <- ggplot(dat1, aes(rM_rf, rA_rf)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  labs(title = "Plot 1", x = "rM - rf", y = "rA - rf") +
+  ylim(min(dat1[c('rA_rf', 'rB_rf')]), max(dat1[c('rA_rf', 'rB_rf')])) +
+  xlim(-max(abs(dat1$rM_rf)), max(abs(dat1$rM_rf)))
+
+# Create a scatter plot for the excess return of Morgan Stanley and the excess return of the stock market relationship.
+plot2 <- ggplot(dat1, aes(rM_rf, rB_rf)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  labs(title = "Plot 2", x = "rM - rf", y = "rB - rf") +
+  ylim(min(dat1[c('rA_rf', 'rB_rf')]), max(dat1[c('rA_rf', 'rB_rf')])) +
+  xlim(-max(abs(dat1$rM_rf)), max(abs(dat1$rM_rf)))
+
+# Plot the results side by side
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+
+It appears that the Morgan Stanley share has positive correlation with the market returns,which indicates it is more strongly associated with market returns. 
+
+
+## Section 4
+
+
+$$(r_{jt} - r_f) = \alpha_j + \beta_j \cdot (r_{Mt} - r_f) + \epsilon_{jt}$$
+$\\$
+
+
+### sub-section a:
+
+
+As instructed,we will began with this expression:
+
+$cov(r_j - r_f, rM) = cov(\alpha_j + \beta_j(rM - rf) + \epsilon_j, rM)$
+
+$\alpha_j$ is a constant, thus it doesn't effect covariance (like we explained earlier).
+
+$cov(r_j - r_f, rM) = cov(\beta_j(rM - rf) + \epsilon_j, rM)$
+
+$rM$ is a random variable so, by the covariance rules we can:
+
+$cov(r_j - r_f, rM) = cov(\beta_j(rM - rf), rM) + cov(\epsilon_j, rM)$
+
+Now, we can use the fact that in a general linear projection model:
+
+$cov(e, X) = 0$ => $cov(\epsilon_j, rM) = 0$
+
+And therefore, we get:
+
+$cov(r_j - r_f, rM) = cov(\beta_j(rM - rf), rM)$
+
+$\beta_j$ is a constant, therefore we can extract it from the covariance:
+
+$cov(r_j - r_f, rM) = \beta_j \cdot cov((rM - rf), rM)$
+
+$\beta_j = {cov(r_j - r_f, rM) \over cov((rM - rf), rM)}$
+
+rf is a constant, therefore we will get $cov(rM, rM) = var(rM)$ and $cov(r_j, rM)$ (again, from the same mathematical definition)
+
+Finally, we will get:
+
+$\beta_j = {cov(r_j, rM) \over var(rM)}$
+
+
+### sub-section b:
+
+
+As instructed, we will began with this expression:
+
+$E(r_j - rf) = E(\alpha_j + \beta_j(rM - rf) + \epsilon_j)$
+
+From the law of linearity of expectation we can compute:
+
+$E(r_j) - E(rf) = E(\alpha_j) + E(\beta_j(rM - rf)) + E(\epsilon_j)$
+
+Now, we can use the fact that in a general linear projection model:
+
+$E(e) = 0$ => $E(\epsilon_j) = 0$
+
+And therefore, we get:
+
+$E(r_j) - E(rf) = E(\alpha_j) + E(\beta_j(rM - rf))$
+
+rf is a constant, and by the rules of expectation, the expectation of a constant is the value itself.therefore we will get:
+
+$E(r_j) - rf = E(\alpha_j) + E(\beta_j(rM - rf))$
+
+$\beta_j$ is a constant so we can extract it from the expectation:
+
+$E(r_j) - rf = E(\alpha_j) + \beta_j \cdot (E(rM) - rf)$
+
+Now, if equation 1 holds, then $E(\alpha) = 0$ => $\alpha_j = 0$
+
+Finally, we will get:
+
+$E(r_j) - rf =  \beta_j \cdot (E(rM) - rf)$
+
+
+### sub-section c:
+
+
+```{r}
+# Estimating the gold shares with an OLS regression.
+modelA <- lm(rA_rf ~ rM_rf, dat1)
+
+# Estimating the Morgan Stanley shares with an OLS regression. 
+modelB <- lm(rB_rf ~ rM_rf, dat1)
+```
+
+We got that $\hat\beta_A = `r modelA$coefficients[2]`$ and $\hat\beta_B = `r modelB$coefficients[2]`$
+
+
+### sub-section d:
+
+
+As we expected, $\hat\beta_A$ is close to zero and it consistent with the covariance between rA and rM, which indicates that there isn't any correlation between the variables.
+The estimator for $\hat\beta_B$ also consistent with the scatter plot that showed positive correlation and positive covariance between rB and rM.
+
+
+### sub-section e:
+
+
+Based on the estimates,$\hat\beta_B$  seems to co-vary more
+closely with the market, Because of the slope differences between the two regression.("closer to the imaginary Y = X line of perfect correlation")
+
+
+### sub-section f:
+
+
+```{r message=FALSE}
+# Using the scatter plot for the excess return of the gold shares and the excess return of the stock market relationship.
+plot1 <- ggplot(dat1, aes(rM_rf, rA_rf)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_smooth(method="lm", se=FALSE) +
+  labs(title = "Plot 1", x = "rM - rf", y = "rA - rf") +
+  ylim(min(dat1[c('rA_rf', 'rB_rf')]), max(dat1[c('rA_rf', 'rB_rf')])) +
+  xlim(-max(abs(dat1$rM_rf)), max(abs(dat1$rM_rf)))
+
+# Using the scatter plot for the excess return of d Morgan Stanley and the excess return of the stock market relationship.
+plot2 <- ggplot(dat1, aes(rM_rf, rB_rf)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_smooth(method="lm", se=FALSE) +
+  labs(title = "Plot 2", x = "rM - rf", y = "rB - rf") +
+  ylim(min(dat1[c('rA_rf', 'rB_rf')]), max(dat1[c('rA_rf', 'rB_rf')])) +
+  xlim(-max(abs(dat1$rM_rf)), max(abs(dat1$rM_rf)))
+
+# Plot the results side by side
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+
+### sub-section g:
+
+
+An investor that worries about market volatility will add Gold Shares to her portfolio because if she would add Morgan Stanley Shares to her portfolio, when the market will go down by 1, her portfolio will go down by more (multiplied by -1.6380891). When she invests in Gold Shares then during volatile market her Gold Shares holding will not vary much.
+
+
+# Part 2. CAPM – Multiple Hypothesis Testing and the Search for α
+
+
+## Section 1
+
+
+```{r}
+# Reading the data.
+dat2 <- read.dta13('data_part2.dta')
+
+# Subtracting the risk free assent interest rf from each variable.
+df <- dat2[,-1] - rf
+
+# Defining all the new columns names.
+colnames(df) <- paste(names(dat2)[-1], '_rf', sep='')
+
+# Combining the two data frames into one.
+dat2 <- cbind(dat2, df)
+```
+
+
+## Section 2
+
+
+### sub-section a:
+
+
+Homoscedasticity is when the variance of the error doesn't depend on changes in the explanatory variable (meaning that: $var(e|x_i) = \sigma^2$ for any $x_i$ when $\sigma^2$ is a constant).
+Homoscedasticity seem unlikely to be a realistic assumption because a stocks with higher expected return usually tend to vary more than stocks with lower expected return.
+In addition,we can see visually in the scatter plots that their isn't Homoscedasticity (the points must be about the same distance from the line).
+
+
+### sub-section b:
+
+
+```{r}
+# Estimating the mutual fund SWPPX with OLS regression.
+model_SWPPX <- lm(r_swppx_rf ~ r_M_rf, dat2)
+summary(model_SWPPX)
+
+# Compute p-value for α for the test of the null hypothesis.
+alpha_pvalue <- coeftest(model_SWPPX, vocv=vcovHC(model_SWPPX))[1,4]
+alpha_pvalue
+```
+
+
+According to the result, we can reject the null hypothesis that $\alpha_j = 0$ with `r 100*round(1-alpha_pvalue, 2)`% confidence.
+
+
+### sub-section c:
+
+
+```{r}
+# Compute confidence interval around α with a confidence level of 90%.
+ci(model_SWPPX,confidence = 0.9)[1,2:3]
+```
+
+
+### sub-section d:
+
+
+The results imply that in at least 90% of the cases (to be accurate 98% of the case due the p-value that we found) $\alpha > 0$. The financial meaning to this finding is that the mutual fund SWPPX expected return was in reality higher than the return was predicted by the CAPM model.
+This means that we would like to hold or buy the stock of this mutual fund.
+
+
+## Section 3
+
+
+```{r}
+# Creating a function that will compute all the beta estimators.
+betas_estimators_fun <- function(x) {
+  lm_r_ <- lm(x ~ dat2$r_M_rf)
+  return(coeftest(lm_r_, vocv=vcovHC(lm_r_))[2,1])
+}
+
+# Computing beta for every stock in the data stocks.
+betas_estimators <- sapply(dat2[,14:23], betas_estimators_fun)
+round(betas_estimators, 5)
+
+# Creating a function that will compute all the α estimators.
+alphas_estimators_fun <- function(x) {
+  lm_r_ <- lm(x ~ dat2$r_M_rf)
+  return(coeftest(lm_r_, vocv=vcovHC(lm_r_))[1,1])
+}
+
+# Computing α for every stock in the data stocks.
+alphas_estimators <- sapply(dat2[,14:23], alphas_estimators_fun)
+round(alphas_estimators, 5)
+
+
+# Creating a function that will compute the p-values for α.
+p_val_fun <- function(x) {
+  lm_r_ <- lm(x ~ dat2$r_M_rf)
+  return(coeftest(lm_r_, vocv=vcovHC(lm_r_))[1,4])
+}
+
+# Computing p-values for every α of the data stocks.
+p_values <- sapply(dat2[,14:23], p_val_fun)
+round(p_values, 5)
+
+```
+
+
+We will reject the null hypothesis that $\alpha_j = 0$ at the 0.10 significance level, for which it's p-value is smaller than 0.1. According to the results we will reject the null hypothesis for $\alpha$ for the variables: `r names(p_values[p_values < 0.1])`.
+
+We can conclude that those 3 funds have higher return than should be possible under CAPM.we would probably like to invest in those stocks.
+
+
+## Section 4
+
+
+### sub-section a:
+
+
+The FWER is the probability to reject every null. If only one null hypothesis is true,that means we will falsely reject it, which by definition it is $\alpha$.
+IN our case,we have 10 independent hypothesizes and we falsely reject only one so $\alpha =0.1$.
+
+
+### sub-section b:
+
+
+Assuming the hypothesizes are independent, the formula for computing the FWER is $1 - (1-\alpha)^n$, when $n$ is the number of falsely rejected hypothesizes.
+If two of the ten null hypotheses are true, for $\alpha = 0.1$ we will get $1 - (1 - \alpha)^2 = 1 - (1 -2 \alpha + \alpha^2) = \alpha(2 - \alpha)_{|\alpha=0.1} = 0.19$ which is of course higher then 0.1. 
+
+
+### sub-section c:
+
+
+If $k$ null hypotheses are true, where $k$ is any number from 1 to 10, the FWER is:
+
+$1 - (1 - \alpha)^k$
+
+we will check if this expression is true for any $\alpha$:
+
+$1 - (1 - \alpha)^k \ge \alpha$
+
+$-(1 - \alpha)^k \ge \alpha - 1$
+
+$(1 - \alpha)^k \le 1 - \alpha$
+
+$\alpha$ is a positive fraction by definition, therefore $(1 - \alpha)$ is also a positive fraction.
+
+Raising any positive fraction by power of positive integer will be less or equal the fraction itself (in particular for $1 \le k \le 10$).
+
+$1 - (1 - \alpha)^k _{|k=10, \alpha=0.1} = 1 - (0.9)^{10} =`r 1 - 0.9^10`$
+
+
+## Section 5
+
+
+```{r}
+# checking which of the null hypothesis will be rejected after the Bonferroni correction.
+p_values[p_values < (0.1 / 10)]
+```
+
+
+After we used the Bonferroni correction, we reject only 1 null hypothesis.
+
+
+## Section 6
+
+
+```{r}
+# Implementing Holm’s procedure on the p-values for all 10 hypothesis tests.
+holm_p <- p.adjust(p_values, method="holm")
+holm_p
+```
+
+
+We can see that be implementing the Holm's procedure on the p-values, we now reject 2 of the null hypothesis:
+`r names(holm_p[holm_p < 0.1])`.
+It makes sense,beacuse the procedure shouled rejecting at least as many null hypotheses as the Bonferroni correction did. 
