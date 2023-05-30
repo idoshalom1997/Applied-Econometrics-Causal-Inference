@@ -1,0 +1,346 @@
+---
+title: "Problem Set 4"
+output:
+  html_document:
+    theme: spacelab
+    toc: yes
+    tod_depth: 1
+    toc_float: yes
+    df_print: paged
+    css: styles.css
+  pdf_document:
+    toc: yes
+---
+
+
+Ido Shalom  
+
+
+Ofri Ahiel  
+
+
+Daniel Rodan  
+
+
+Ori Shneor  
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Clear desk
+rm(list=ls())
+
+# Load libraries
+library(readstata13)
+library(ggplot2)
+library(dplyr)
+library(stargazer)
+library(estimatr)
+
+```
+
+
+```{css echo=FALSE}
+th, td {
+    padding-left: 20px;
+    text-align: left;
+}
+
+```
+
+
+# Part 1. Setup
+
+
+## Section 1
+
+
+```{r}
+# Reading the data.
+dat <- read.dta13("estdata.dta")
+
+# Computing the number of states.
+n_distinct(dat$state, na.rm = TRUE)
+
+# Computing the number of time periods.
+(dat %>% group_by(year) %>% summarise(count = n_distinct(month, na.rm = TRUE)))[2] %>% sum()
+```
+
+
+There is `r n_distinct(dat$state, na.rm = TRUE)` states, and `r (dat %>% group_by(year) %>% summarise(count = n_distinct(month, na.rm = TRUE)))[2] %>% sum()` time periods in the dataset.
+
+
+## Section 2
+
+
+### Sub-section a
+
+
+```{r}
+# Count the number of NA's for the variable "txmsban".
+sum(is.na(dat$txmsban))
+
+# Count the number of NA's for the variable "laccidentsvso2"
+sum(is.na(dat$laccidentsvso2))
+```
+
+
+### Sub-section b
+
+
+```{r}
+# The observations contain NA's for txmsban or for laccidentsvso2 with relevance to state and time.
+dat[is.na(dat[c("txmsban","laccidentsvso2")]), c("state", "time")]
+
+```
+
+
+### Sub-section c
+
+
+```{r}
+# Checking Which states have missing time periods.
+missing_periods <- which(is.na(dat[c("year", "month")]), arr.ind = TRUE)[,1]
+
+# Display in a small table the states index Which missing time periods.
+table(dat[missing_periods,]$state)
+
+```
+
+
+### Sub-section d
+
+
+According to the results that we get in the previous sub-sections, there is one missing time period for state number 2 and six missing time periods for state number 9.
+therefore, in order to compute "balance panel" we need to remove this two state so that each state will have the same amount of time periods. 
+
+
+```{r}
+# Removing states 2 and 9 which have missing time periods.
+df <- subset(dat, !(state %in% c(2, 9)))
+```
+
+
+# Part 2. Canonical Diff-In-Diff
+
+
+## Section 1
+
+
+### Sub-section a
+
+
+```{r}
+# Finding  the first time period in which State 43 implemented a texting ban.
+txt_43 <- arrange(subset(df, state == 43 & txmsban == 1), time)$time[1]
+txt_43
+
+# Creating a new data frame restricted only to states 43 and 25
+df_25_43 <- subset(df, state == 25| state == 43)
+
+# Create dummy variable for post
+df_25_43$post <- ifelse(df_25_43$time >= txt_43, 1, 0)
+```
+
+
+### Sub-section b
+
+
+The "No Anticipatory Effects" assumption means that individuals or entities in the treatment group do not anticipate the treatment and change their behavior in anticipation of it. In other words, they do not adjust their actions or outcomes prior to the actual implementation of the treatment.
+
+In our case, we will assume that in the periods before the texting ban implemented in state 43, the citizens of the state did not anticipate the texting ban and therefore, they acted regularly and did not cause any casual effect  prior to the  implementation in the study. 
+
+
+### Sub-section c
+
+
+```{r message=FALSE}
+# creating a plot for the two states.
+ggplot(df_25_43, aes(time, laccidentsvso2, group=state, color=factor(state)))+
+  geom_smooth(se=FALSE)+
+  geom_vline(xintercept=txt_43)+
+  annotate("text",x = 30,y = 3.15,label = "texting ban",angle = 90)+
+  labs(title = "Common Trends")
+```
+
+
+The "Common Trends Assumption" assumes that any differences in outcomes between the two groups after the treatment can be attributed solely to the treatment itself, rather than pre-existing divergent trends.
+
+Based on the plot only,we can see that the "Common Trends Assumption"
+holds in our case. before the period of the texting ban in state 43, the two states graphs basically parallel over time.
+
+
+### Sub-section d
+
+
+$$Y_{it} = \beta_0 + \beta_1 STATE43_i + \beta_2 POST_t + \beta_3 STATE43_i*POST_t + \epsilon_{it}$$
+
+```{r}
+# Creating dummy variable to extract only state 43 from the data frame.
+df_25_43$state43 <- ifelse(df_25_43$state == 43, 1, 0)
+
+# A fully saturated regression model on laccidentsvso2.
+model1_a <- lm(laccidentsvso2 ~ state43 + post + state43*post, df_25_43)
+summary(model1_a)
+```
+
+
+### Sub-section e
+
+
+```{r}
+# A regression on laccidentsvso2 with the controls that were use by the authors in the paper.
+model1_b <- lm(laccidentsvso2 ~ state43 + post + state43*post + lpop + lunemp + permale2 + rgastax, df_25_43)
+summary(model1_b)
+```
+
+
+### Sub-section f
+
+
+```{r}
+# A regression on laccidentsvso2 with the controls that were use by the authors in the paper and the weights that correspond to the state population.
+model1_c <- lm(laccidentsvso2 ~ state43 + post + state43*post + lpop + lunemp + permale2 + rgastax, df_25_43, weights = pop)
+summary(model1_c)
+```
+
+
+### Sub-section g
+
+
+```{r results='asis'}
+# Creating a regressions table for all three previous sub-sections.
+stargazer(model1_a, model1_b, model1_c, type = "html", title = "Rsegressions Table", column.labels = c("Model 1", "Model 1 with Controls", "Model 1 with controls and weights"))
+```
+
+
+## Section 2
+
+
+### Sub-section a
+
+
+```{r}
+# Creating a dummy variable "post" for every state according to the starting treatment period of state 43.
+df$post <- ifelse(df$time >= txt_43, 1, 0)
+
+# Creating dummy variable for "treated" that is equal to 1 if the state ever implemented a text message ban and 0 otherwise. 
+df$treated <- ifelse(group_by(df, state)$txmsban == 1, 1, 0)
+
+# Creating a table of treated states
+treat <- group_by(df, state) %>% summarise(sum(txmsban))
+
+# Creating a dummy variable for treated in the original data frame.
+df$treated <- ifelse(df$state %in% treat[which(treat[2] == 0),][[1]], 0 ,1)
+```
+
+
+### Sub-section b
+
+
+$$Y_{it} = \alpha_0 + \alpha_1 TREATED_i + \alpha_2 POST_t + \alpha_3 TREATED_i*POST_t + \epsilon_{it}$$
+
+
+```{r}
+# A fully saturated regression model on laccidentsvso2.
+model2 <- lm(laccidentsvso2 ~ treated + post + treated*post, df)
+summary(model2)
+```
+
+
+### Sub-section c
+
+
+$$Y_{it} = \gamma_i + \phi_t + \alpha_3 TREATED_i*POST_t + \epsilon_{it}$$
+
+
+```{r}
+# A regression on laccidentsvso2 with fixed effects.
+model3_a <- lm_robust(laccidentsvso2 ~ treated:post, df,fixed_effects = state+time)
+summary(model3_a)
+```
+
+
+we have notice that the standard error of the estimate on the interaction term in regression sub-section c, is smaller compered to the one on sub-section b (makes sense, because it's robust standard errors).
+
+
+### Sub-section d
+
+$$Y_{it} = \gamma_i + \phi_t + \alpha_1 TREATED_i + \alpha_2 POST_t + \alpha_3 TREATED_i*POST_t + \epsilon_{it}$$
+
+```{r}
+# Regression on laccidentsvso2 with fixed effects and dummies.
+model4 <- lm_robust(laccidentsvso2 ~ treated + post + treated*post,  df,fixed_effects = state+time)
+summary(model4)
+```
+
+The reason why we did not include them is because, When we try to add the dummy variables to the model with fixed effect,we actually putting into the regression equation two variables which is a linear “equation” of one another, and we will get the same results as in model 3.it creates full multicollinearity with $\phi$ and $\gamma$.
+
+
+### Sub-section e
+
+
+```{r}
+# A regression on laccidentsvso2 with fixed effects, controls, and weights.
+model3_b <- lm_robust(laccidentsvso2 ~ treated:post + lpop + lunemp + permale2 + rgastax, df, fixed_effects = state + time, weights = pop)
+summary(model3_b)
+```
+
+
+# Part 3. Staggered Diff-In-Diff
+
+
+## Section 1
+
+
+$$Y_{it} = \gamma_i + \phi_t + BAN_{it} + \epsilon_{it}$$
+
+```{r}
+# A regression on laccidentsvso2 with txmsban,controls and fixed effects.
+model5 <- lm_robust(laccidentsvso2 ~txmsban + lpop + lunemp + permale2 + rgastax,  df,fixed_effects = state+time,weights = pop)
+summary(model5)
+```
+
+
+## Section 2
+
+
+### Sub-section a
+
+
+$$Y_{it} = \gamma_i + \phi_t + \sum_{\tau=-10}^{10}{\alpha_\tau LBAN_{\tau,{it}}} + \epsilon_{it}$$
+
+```{r}
+# Creating the string formula for the regression.
+TWFE_formula <- paste("laccidentsvso2 ~", paste(names(df)[c(30:39,41:50, 17, 26:28)], collapse = " + "))
+
+# Estimate static TWFE model
+model6 <- lm_robust(as.formula(TWFE_formula), df ,weights = pop)
+summary(model6)
+```
+
+
+### Sub-section b
+
+
+```{r}
+# Saving model 6's results.
+results <- tidy(model6)[c(2:21),]
+
+# Create a plot for the time periods.
+ggplot(results, aes(factor(term,level = results[,1]), estimate)) +
+  geom_pointrange(aes(ymin=conf.low, ymax=conf.high))+
+  labs(title = "Estimate Dynamic TWFE Model",x = "Time (months)",y = "Estimator")
+```
+
+
+### Sub-section c
+
+
+I wouldn't recommend the authors to use this system of Dynamic TWFE Model,because we can see in the plot that even 4 after for months,the citizens "forgot" about the texting ban and resume to their old habits.
+we can conclude that there will be no significant difference 10 years ahead,and that the texting ban is much more effective in the short-term. 
+
+
+
+
