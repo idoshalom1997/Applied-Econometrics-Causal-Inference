@@ -1,5 +1,6 @@
 ---
-title: "Problem Set 4"
+title: "Part 4 - Texting Bans and Car Accidents: Difference-in-Differences"
+subtitle: "Applied Econometrics, Hebrew University, 2023"
 output:
   html_document:
     theme: spacelab
@@ -7,7 +8,6 @@ output:
     tod_depth: 1
     toc_float: yes
     df_print: paged
-    css: styles.css
   pdf_document:
     toc: yes
 ---
@@ -58,7 +58,7 @@ th, td {
 
 ```{r}
 # Reading the data.
-dat <- read.dta13("estdata.dta")
+dat <- read.dta13("data/estdata.dta")
 
 # Computing the number of states.
 n_distinct(dat$state, na.rm = TRUE)

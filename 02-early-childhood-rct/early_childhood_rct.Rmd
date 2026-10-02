@@ -1,5 +1,6 @@
 ---
-title: "Problem Set 2"
+title: "Part 2 - Early Childhood Education: A Randomized Trial"
+subtitle: "Applied Econometrics, Hebrew University, 2023"
 output:
   html_document:
     theme: spacelab
@@ -57,7 +58,7 @@ th, td {
 
 ```{r}
 # Read the data
-dat <- readRDS('earlytrainingproject_clean.rds')
+dat <- readRDS('data/earlytrainingproject_clean.rds')
 ```
 
 

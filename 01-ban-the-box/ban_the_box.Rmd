@@ -1,5 +1,6 @@
 ---
-title: "Problem Set 1"
+title: "Part 1 - Ban the Box: A Field Experiment on Race and Criminal Records"
+subtitle: "Applied Econometrics, Hebrew University, 2023"
 output:
   html_document:
     theme: spacelab
@@ -47,7 +48,7 @@ Ori Shneor
 ### Section 2
 ```{r}
 # read the data
-dat <- read.table('AganStarrQJEData.csv', header=TRUE, sep=",")
+dat <- read.table('data/AganStarrQJEData.csv', header=TRUE, sep=",")
 
 # create a subset of the data excluding remover = -1
 df <- subset(dat, remover != -1)
