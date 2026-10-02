@@ -42,11 +42,11 @@ rmarkdown::render("04-texting-bans-did/texting_bans_did.Rmd")
 
 ## Authors
 
-Group work by **Ido Shalom, Daniel Rodan, Ofri Ahiel and Ori Shneor**, as problem sets for *Applied Econometrics* at the Hebrew University of Jerusalem, spring 2023 (B.Sc. Statistics & Data Science).
+A joint project by **Ido Shalom, Daniel Rodan, Ofri Ahiel and Ori Shneor**, built during the *Applied Econometrics* course at the Hebrew University of Jerusalem, spring 2023 (B.Sc. Statistics & Data Science).
 
 ## Data sources
 
 - Agan, A. & Starr, S. (2018). *Ban the Box, Criminal Records, and Racial Discrimination: A Field Experiment.* Quarterly Journal of Economics.
 - The Early Training Project, a randomized preschool intervention for children in poverty.
-- Monthly stock, market and mutual-fund returns (provided by the course).
+- Monthly returns of gold and Morgan Stanley shares, the stock market and the SWPPX mutual fund.
 - Abouk, R. & Adams, S. (2013). *Texting Bans and Fatal Accidents on Roadways: Do They Work? Or Do Drivers Just React to Announcements of Bans?* American Economic Journal: Applied Economics.
